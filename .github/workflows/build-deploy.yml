@@ -1,0 +1,71 @@
+name: Build & Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Slim Geant4 datasets
+        run: |
+          pip install --quiet requests
+          python3 scripts/slim_datasets.py --out data/slim
+
+      - name: Cache Geant4 WASM build
+        id: g4cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/geant4-wasm-install
+            build/emsdk
+          key: geant4-wasm-${{ hashFiles('scripts/build_geant4_wasm.sh') }}
+
+      - name: Build Geant4 with Emscripten (first run ~1-2 h, then cached)
+        if: steps.g4cache.outputs.cache-hit != 'true'
+        run: bash scripts/build_geant4_wasm.sh
+
+      - name: Re-activate emsdk from cache
+        if: steps.g4cache.outputs.cache-hit == 'true'
+        run: |
+          EMSDK_VERSION="${EMSDK_VERSION:-3.1.61}"
+          build/emsdk/emsdk install $EMSDK_VERSION
+          build/emsdk/emsdk activate $EMSDK_VERSION
+
+      - name: Build WASM application + pack data
+        run: bash scripts/build_app_wasm.sh
+
+      - name: Build web frontend
+        run: |
+          cd web
+          npm install
+          npm run build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
