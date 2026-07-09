@@ -1,0 +1,35 @@
+name: Validate physics (native Geant4 vs slimmed data)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache native Geant4
+        uses: actions/cache@v4
+        with:
+          path: build-native/geant4-install
+          key: geant4-native-${{ hashFiles('scripts/build_native.sh') }}
+
+      - name: Build native app
+        run: bash scripts/build_native.sh
+
+      - name: Slim datasets
+        run: python3 scripts/slim_datasets.py --out data/slim
+
+      - name: Run validation matrix against slimmed data
+        run: |
+          export G4LEDATA=$PWD/data/slim/G4EMLOW
+          export G4ENSDFSTATEDATA=$PWD/data/slim/G4ENSDFSTATE
+          python3 validation/run_matrix.py --bin build-native/app/web-geant4
+
+      - name: Upload reference spectra
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-spectra
+          path: validation/results/
