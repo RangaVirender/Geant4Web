@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web Geant4 — Gamma Detector Response</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>☢</text></svg>" />
+  <style>
+    :root {
+      --bg: #10141a; --panel: #1a2230; --border: #2c3a52; --text: #dfe7f3;
+      --muted: #8fa1bd; --accent: #4fa3ff; --accent2: #ffb454;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    header { padding: 10px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 12px; }
+    header h1 { font-size: 18px; margin: 0; }
+    header span { color: var(--muted); font-size: 12px; }
+    main { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 12px; padding: 12px; height: calc(100vh - 52px); min-height: 0; overflow: hidden; }
+    #controls { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px; overflow-y: auto; }
+    #right { display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; min-width: 0; min-height: 0; }
+    .pane { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; position: relative; min-height: 0; overflow: hidden; }
+    .pane h3 { position: absolute; top: 6px; left: 12px; margin: 0; font-size: 12px; color: var(--muted); z-index: 2; text-transform: uppercase; letter-spacing: .08em; }
+    .pane canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 3px; }
+    select, input { width: 100%; background: #0d1117; color: var(--text); border: 1px solid var(--border); border-radius: 5px; padding: 6px 8px; font-size: 13px; }
+    .row { display: flex; gap: 8px; }
+    .row > div { flex: 1; }
+    button { width: 100%; margin-top: 14px; padding: 10px; font-size: 14px; font-weight: 600; color: #fff; background: var(--accent); border: 0; border-radius: 6px; cursor: pointer; }
+    button:disabled { background: #33405a; cursor: default; }
+    #abortBtn { background: #b5484d; margin-top: 6px; padding: 6px; font-size: 12px; display: none; }
+    #status { font-size: 12px; color: var(--muted); margin-top: 10px; min-height: 30px; }
+    progress { width: 100%; height: 8px; }
+    #summary { font-size: 12px; margin-top: 8px; line-height: 1.7; }
+    #summary b { color: var(--accent2); }
+    canvas { display: block; }
+    #broadenRow { margin-top: 4px; }
+    .toggle { display: inline-flex; gap: 4px; margin: 6px 0; }
+    .toggle button { width: auto; margin: 0; padding: 3px 10px; font-size: 11px; background: #0d1117; border: 1px solid var(--border); color: var(--muted); }
+    .toggle button.active { background: var(--accent); color: #fff; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Web Geant4</h1>
+    <span>gamma detector response — real Geant4 compiled to WebAssembly, running in your browser</span>
+  </header>
+  <main>
+    <div id="controls">
+      <label>Preset</label>
+      <select id="preset"></select>
+      <label>Detector material</label>
+      <select id="material">
+        <option>NaI</option><option>CsI</option><option>LaBr3</option>
+        <option>BGO</option><option>HPGe</option><option>CdTe</option><option>PVT</option>
+      </select>
+      <label>Geometry</label>
+      <select id="shape">
+        <option value="cylinder">Cylinder</option>
+        <option value="box">Box</option>
+        <option value="well">Well</option>
+      </select>
+      <div class="row" id="cylDims">
+        <div><label>Diameter (mm)</label><input id="diameter" type="number" value="76.2" /></div>
+        <div><label>Height (mm)</label><input id="height" type="number" value="76.2" /></div>
+      </div>
+      <div class="row" id="boxDims" style="display:none">
+        <div><label>X (mm)</label><input id="boxX" type="number" value="50" /></div>
+        <div><label>Y (mm)</label><input id="boxY" type="number" value="50" /></div>
+      </div>
+      <div class="row" id="wellDims" style="display:none">
+        <div><label>Well ⌀ (mm)</label><input id="wellDiameter" type="number" value="16" /></div>
+        <div><label>Well depth (mm)</label><input id="wellDepth" type="number" value="40" /></div>
+      </div>
+      <label>Al housing thickness (mm, 0 = none)</label>
+      <input id="housing" type="number" value="1" step="0.5" min="0" />
+      <label>Source</label>
+      <select id="sourceType">
+        <option value="point">Point (isotropic, on axis)</option>
+        <option value="beam">Parallel beam</option>
+      </select>
+      <div class="row">
+        <div><label>Energy (keV)</label><input id="energy" type="number" value="662" /></div>
+        <div><label>Distance (mm)</label><input id="distance" type="number" value="100" /></div>
+      </div>
+      <label>Spectrum max (keV, 0 = auto: 1.1 × energy)</label>
+      <input id="eMax" type="number" value="0" min="0" step="100" />
+      <label>Histories</label>
+      <select id="nEvents">
+        <option value="10000">10 000 (quick)</option>
+        <option value="100000" selected>100 000</option>
+        <option value="500000">500 000</option>
+        <option value="2000000">2 000 000 (slow)</option>
+      </select>
+      <button id="runBtn" disabled>Loading Geant4…</button>
+      <button id="abortBtn">Abort</button>
+      <div id="status"></div>
+      <progress id="prog" value="0" max="1" style="display:none"></progress>
+      <div id="summary"></div>
+    </div>
+    <div id="right">
+      <div class="pane" id="spectrumPane">
+        <h3>Pulse-height spectrum</h3>
+        <div style="position:absolute; top:4px; right:12px; z-index:2">
+          <span class="toggle">
+            <button id="linBtn" class="active">lin</button>
+            <button id="logBtn">log</button>
+          </span>
+          <span class="toggle">
+            <button id="rawBtn">raw</button>
+            <button id="broadBtn" class="active">broadened</button>
+          </span>
+        </div>
+        <canvas id="spectrum"></canvas>
+      </div>
+      <div class="pane" id="viewPane">
+        <h3>Geometry &amp; sampled tracks</h3>
+        <canvas id="view3d"></canvas>
+      </div>
+    </div>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
