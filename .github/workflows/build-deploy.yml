@@ -1,5 +1,5 @@
 name: Build & Deploy to GitHub Pages
- 
+
 on:
   push:
     branches: [main]
@@ -12,12 +12,12 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false   # never kill a long Geant4 compile; queue instead
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
 
@@ -26,18 +26,41 @@ jobs:
           pip install --quiet requests
           python3 scripts/slim_datasets.py --out data/slim
 
-      - name: Cache Geant4 WASM build
+      - name: Restore Geant4 WASM build cache
         id: g4cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             build/geant4-wasm-install
             build/emsdk
+            build/geant4-wasm-build
+            build/geant4-v11.3.2
           key: geant4-wasm-${{ hashFiles('scripts/build_geant4_wasm.sh') }}
+          restore-keys: geant4-wasm-
 
-      - name: Build Geant4 with Emscripten (first run ~1-2 h, then cached)
+      # Compile for at most 4.5 h; a timeout exits cleanly (code 124) so the
+      # partial build still gets cached and the next run resumes from it.
+      - name: Build Geant4 with Emscripten (resumable)
         if: steps.g4cache.outputs.cache-hit != 'true'
-        run: bash scripts/build_geant4_wasm.sh
+        run: |
+          timeout 270m bash scripts/build_geant4_wasm.sh || {
+            code=$?
+            if [ "$code" = "124" ]; then
+              echo "::error::Compile time-slice over; partial build was cached. Just RE-RUN this workflow - it resumes where it stopped."
+            fi
+            exit "$code"
+          }
+
+      - name: Save Geant4 WASM build cache
+        if: always() && steps.g4cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build/geant4-wasm-install
+            build/emsdk
+            build/geant4-wasm-build
+            build/geant4-v11.3.2
+          key: geant4-wasm-${{ hashFiles('scripts/build_geant4_wasm.sh') }}-${{ github.run_id }}
 
       - name: Re-activate emsdk from cache
         if: steps.g4cache.outputs.cache-hit == 'true'
