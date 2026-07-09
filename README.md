@@ -1,4 +1,4 @@
-# Web Geant4 — Gamma Detector Response in the Browser
+# Geant4Web — Gamma Detector Response in the Browser
 
 Real **Geant4** compiled to **WebAssembly**, simulating the gamma-ray response of
 scintillation and semiconductor detectors **entirely in the user's browser**.
