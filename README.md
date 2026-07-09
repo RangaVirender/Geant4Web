@@ -38,47 +38,6 @@ Single-threaded WASM (GitHub Pages cannot serve the COOP/COEP headers required f
 threads); a typical 10⁵-history run takes seconds. A `coi-serviceworker` shim can
 enable multithreading later.
 
-## How to publish (one-time setup)
-
-1. Install [Git for Windows](https://git-scm.com/download/win) if you don't have it.
-2. Create an empty repository on GitHub (e.g. `web-geant4`), **without** a README.
-3. In this folder:
-   ```
-   git init
-   git add .
-   git commit -m "Web Geant4: gamma detector response simulator"
-   git branch -M main
-   git remote add origin https://github.com/<your-username>/web-geant4.git
-   git push -u origin main
-   ```
-4. On GitHub: **Settings → Pages → Source: GitHub Actions.**
-5. The push triggers the *Build & Deploy* workflow (Actions tab). The **first run
-   takes ~1–2 hours** (it compiles Geant4 with Emscripten); the result is cached,
-   so later pushes take a few minutes.
-6. Your app is live at `https://<your-username>.github.io/web-geant4/`.
-
-## Local development (optional)
-
-Only needed to tweak the UI. Install Node.js, then:
-
-```
-cd web
-npm install
-npm run dev
-```
-
-The WASM module must exist in `web/public/wasm/` — download it from a completed
-CI run (Actions → artifact) or copy from the deployed site
-(`wasm/geant4.mjs`, `wasm/geant4.wasm`, `wasm/geant4.data`).
-
-## Validation
-
-Run the *Validate physics* workflow (Actions tab → run manually). It builds native
-Geant4, points it at the slimmed data pack, and runs 7 materials × 7 energies
-(59.5 keV–2.6 MeV). If any pruned data file were actually needed, Geant4 would
-abort — a completed run proves the pack is sufficient. Reference spectra are
-uploaded as artifacts for cross-checking browser results.
-
 ## Physics notes & limitations
 
 - Electromagnetic physics only: photoelectric effect, Compton (with Doppler
@@ -89,10 +48,3 @@ uploaded as artifacts for cross-checking browser results.
 - Resolution broadening uses generic FWHM(E) models per material
   (`web/src/broaden.ts`) — adjust coefficients to match a specific instrument.
 - The aluminum housing is a simple can; no reflector, PMT, or dead layers.
-
-## Roadmap
-
-- Multithreading via `coi-serviceworker` (N× speedup)
-- Multi-line sources (Eu-152, Co-60 sum peaks) and simple decay schemes
-- Shielding/absorber layer between source and detector
-- URL-shareable configurations
