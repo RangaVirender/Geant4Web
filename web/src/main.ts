@@ -82,6 +82,22 @@ worker.onmessage = (ev: MessageEvent<WorkerMsg>) => {
     runBtn.disabled = false;
     runBtn.textContent = 'Run simulation';
     $('status').textContent = 'Geant4 initialized.';
+    ($('prog') as HTMLProgressElement).style.display = 'none';
+  } else if (msg.type === 'load') {
+    const prog = $('prog') as HTMLProgressElement;
+    prog.style.display = 'block';
+    const mb = (b: number) => (b / 1048576).toFixed(1);
+    if (msg.total > 0) {
+      const pct = Math.min(100, Math.round((100 * msg.loaded) / msg.total));
+      prog.value = msg.loaded / msg.total;
+      runBtn.textContent = `Loading Geant4… ${pct}%`;
+      $('status').textContent = pct >= 100
+        ? 'download complete — initializing Geant4…'
+        : `downloading WASM + datasets… ${mb(msg.loaded)} / ${mb(msg.total)} MB`;
+    } else {
+      prog.removeAttribute('value'); // indeterminate (no Content-Length)
+      $('status').textContent = `downloading WASM + datasets… ${mb(msg.loaded)} MB`;
+    }
   } else if (msg.type === 'progress') {
     ($('prog') as HTMLProgressElement).value = msg.done / msg.total;
     $('status').textContent = `running… ${msg.done.toLocaleString()} / ${msg.total.toLocaleString()}`;

@@ -50,6 +50,7 @@ export interface TracksPayload {
 
 export type WorkerMsg =
   | { type: 'ready' }
+  | { type: 'load'; loaded: number; total: number }
   | { type: 'progress'; done: number; total: number; spectrum: Float64Array; binWidth: number }
   | { type: 'result'; spectrum: Float64Array; binWidth: number; summary: Summary; tracks: TracksPayload }
   | { type: 'error'; message: string };
